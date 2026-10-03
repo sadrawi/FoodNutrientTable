@@ -26,11 +26,11 @@ GROUP_NAMES = {"A": "Serealia", "B": "Umbi berpati", "C": "Kacang/biji/bean",
 FORM_NAMES = {"R": "mentah/segar", "P": "olahan"}
 SKIP_COL = r"^no\.?$|^nomor|^id$|^unnamed|sumber|source|kode|code|nama|name|kelompok|group"
 CATEGORIES = [
-    ("Macronutrients", r"energi|energy|kkal|protein|lemak|\bfat\b|karbo|carb|\bkh\b|serat|fib|^air\b|water|^abu\b|\bash\b"),
+    ("Macronutrients", r"energi|energy|kkal|protein|lemak|\bfat\b|lipid|karbo|carb|\bkh\b|serat|fib|^air\b|water|^abu\b|\bash\b"),
     ("Minerals", r"kalsium|calcium|fosfor|phosph|besi|\biron\b|natrium|sodium|kalium|potass|tembaga|copper|seng|zinc"),
     ("Vitamins", r"retinol|karoten|carot|b[-_ ]?kar|β|thiamin|tiamin|ribofla|niasin|niacin|vit|ascorb"),
 ]
-KEY_MACROS = [("Energy", r"energi|energy|kkal"), ("Protein", r"protein"), ("Fat", r"lemak|\bfat\b"),
+KEY_MACROS = [("Energy", r"energi|energy|kkal"), ("Protein", r"protein"), ("Fat", r"lemak|\bfat\b|lipid"),
               ("Carbohydrate", r"karbo|carb|\bkh\b"), ("Fiber", r"serat|fib")]
 SPLIT_COLORS = ["#B23A2E", "#D9A21B", "#4E8F3A"]
 UNIT_TOKEN = r"^(g|gr|gram|mg|mcg|µg|μg|ug|kal|kkal|kcal|kj|%|iu)$"
@@ -38,7 +38,7 @@ UNIT_TOKEN = r"^(g|gr|gram|mg|mcg|µg|μg|ug|kal|kkal|kcal|kj|%|iu)$"
 DEFAULT_UNITS = [
     (r"energi|energy|kkal|kalori", "kcal"),
     (r"retinol|karoten|carot|b[-_ ]?kar|β", "mcg"),
-    (r"^air\b|water|protein|lemak|\bfat\b|karbo|carb|\bkh\b|serat|fib|^abu\b|\bash\b", "g"),
+    (r"^air\b|water|protein|lemak|\bfat\b|lipid|karbo|carb|\bkh\b|serat|fib|^abu\b|\bash\b", "g"),
     (r"kalsium|calcium|fosfor|phosph|besi|\biron\b|natrium|sodium|kalium|potass|tembaga|copper|seng|zinc"
      r"|thiamin|tiamin|ribofla|niasin|niacin|vit|ascorb", "mg"),
 ]
@@ -156,9 +156,13 @@ def load_table(path, mtime):
 
 
 # ----------------------------- preparing the data ----------------------------
+def name_key(col):
+    return re.sub(r"[_\s]+", " ", str(col)).strip().lower()
+
+
 def find_col(columns, pattern):
     for c in columns:
-        if re.search(pattern, str(c).strip().lower()):
+        if re.search(pattern, name_key(c)):
             return c
     return None
 
@@ -196,7 +200,7 @@ def unit_of(col):
     if m is not None:
         return clean_unit(m.group(1))
     # 3) the standard TKPI unit for this nutrient
-    low = col.strip().lower()
+    low = name_key(col)
     for pat, unit in DEFAULT_UNITS:
         if re.search(pat, low):
             return unit
@@ -219,7 +223,7 @@ def label_of(col):
 
 
 def category_of(col):
-    low = col.strip().lower()
+    low = name_key(col)
     for cat, pat in CATEGORIES:
         if re.search(pat, low):
             return cat
@@ -236,7 +240,7 @@ def prepare(df):
     for c in df.columns:
         if c == code_col or c == name_col or c == bdd_col:
             continue
-        if re.search(SKIP_COL, str(c).strip().lower()):
+        if re.search(SKIP_COL, name_key(c)):
             continue
         v = to_numeric(df[c])
         if v.notna().mean() >= 0.2:
@@ -382,6 +386,11 @@ for k in range(len(KEY_MACROS)):
         else:
             v = X[col][i0]
             st.metric(name, "–" if pd.isna(v) else f"{fmt(v * factor)} {unit_of(col)}")
+
+with st.expander("Columns used for the numbers above"):
+    for name, pat in KEY_MACROS:
+        used = key_cols[name]
+        st.write(f"{name}: {used if used is not None else 'no matching column found in ' + DATA_FILE}")
 
 p_col, f_col, c_col = key_cols["Protein"], key_cols["Fat"], key_cols["Carbohydrate"]
 if p_col is not None and f_col is not None and c_col is not None:
