@@ -311,8 +311,8 @@ def plot_energy_split(protein, fat, carb):
 # ============================== app ==========================================
 st.title("TKPI nutrient lookup")
 st.caption("Pick a food from the dropdown and set the portion. Values come from Tabel Komposisi "
-           "Pangan Indonesia, per 100 g of edible portion (BDD), scaled to your portion."
-           "Supported by Claude Opus 5.5")
+           "Pangan Indonesia, per 100 g of edible portion (BDD), scaled to your portion.")
+st.caption("Supported by Claude Opus 5.5 (Antropic)")
 
 path = os.path.join(os.path.dirname(os.path.abspath(__file__)), DATA_FILE)
 if not os.path.exists(path):
