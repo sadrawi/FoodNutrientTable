@@ -36,9 +36,19 @@ CATEGORIES = [
 ]
 KEY_MACROS = [("Energy", r"energi|energy|kkal"), ("Protein", r"protein"), ("Fat", r"lemak|\bfat\b|lipid"),
               ("Carbohydrate", r"karbo|carb|\bkh\b"), ("Fiber", r"serat|fib")]
-#SPLIT_COLORS = ["#27F587", "#FF5E6C", "#FFE161"]
-# SPLIT_COLORS = ["#FF5E6C", "#27F587", "#FFE161"]
-SPLIT_COLORS = ["#6661FF","#61D2FF", "#61FFBD"]
+SPLIT_COLORS = ["#FF5E6C", "#FFE161", "#27F587", "#6CB8FF"]   # protein, fat, carbohydrate, fiber
+SPLIT_TEXT = "#1E2B21"   # dark labels stay readable on these light colours
+# mineral colours, matched by name so each mineral keeps its colour for every food
+MINERAL_COLORS = [
+    (r"kalsium|calcium", "#A0D8FF"),
+    (r"fosfor|phosph", "#C3A6FF"),
+    (r"besi|\biron\b", "#FF9E5E"),
+    (r"natrium|sodium", "#B8C0CC"),
+    (r"kalium|potass", "#4EE0C6"),
+    (r"tembaga|copper", "#F59BD8"),
+    (r"seng|zinc", "#D4F06A"),
+]
+EXTRA_COLORS = ["#FFC4A3", "#9FE7F5", "#E2D4FF", "#FFE7A0"]
 UNIT_TOKEN = r"^(g|gr|gram|mg|mcg|µg|μg|ug|kal|kkal|kcal|kj|%|iu)$"
 # standard TKPI units per 100 g BDD, used when the file does not state a unit
 DEFAULT_UNITS = [
@@ -289,32 +299,57 @@ def fmt(v):
 
 
 # ----------------------------- plot ------------------------------------------
-def plot_energy_split(protein, fat, carb):
-    kcal = [4 * protein, 9 * fat, 4 * carb]
-    names = ["Protein", "Fat", "Carbohydrate"]
-    total = kcal[0] + kcal[1] + kcal[2]
-    plt.figure(figsize=(6.5, 1.5))
+def plot_share_bar(parts, title):
+    # parts: list of (short name, value, colour, legend text)
+    total = 0.0
+    for name, value, color, legend_text in parts:
+        total += value
+    ncol = len(parts) if len(parts) <= 4 else 3
+    n_rows = (len(parts) + ncol - 1) // ncol
+    plt.figure(figsize=(6.5, 1.25 + 0.28 * n_rows))
     left = 0.0
-    for k in range(3):
-        share = kcal[k] / total
-        plt.barh([0], [share], left=left, color=SPLIT_COLORS[k], height=0.6,
-                 label=f"{names[k]} {share * 100:.0f}%")
-        if share > 0.12:
-            plt.text(left + share / 2, 0, f"{share * 100:.0f}%", ha="center", va="center",
-                     color="white", fontsize=10, fontweight="bold")
+    for name, value, color, legend_text in parts:
+        share = value / total
+        plt.barh([0], [share], left=left, color=color, height=0.6, label=legend_text)
+        if share > 0.22:
+            text = f"{name} {share * 100:.0f}%"
+        elif share > 0.08:
+            text = f"{share * 100:.0f}%"
+        else:
+            text = ""
+        if text:
+            plt.text(left + share / 2, 0, text, ha="center", va="center",
+                     color=SPLIT_TEXT, fontsize=10, fontweight="bold")
         left += share
     plt.xlim(0, 1)
     plt.axis("off")
-    plt.legend(ncol=3, loc="upper center", bbox_to_anchor=(0.5, 0.05), frameon=False, fontsize=9)
-    plt.title("Share of energy from each macronutrient (4, 9, 4 kcal per g)", fontsize=9, loc="left")
+    plt.legend(ncol=ncol, loc="upper left", bbox_to_anchor=(0.0, 0.05, 1.0, 0.0), mode="expand",
+               frameon=False, fontsize=9, handlelength=1.2, columnspacing=0.8)
+    plt.title(title, fontsize=9, loc="left")
     plt.tight_layout()
+
+
+def to_mg(value, unit):
+    u = unit.lower()
+    if u == "g":
+        return value * 1000.0
+    if u in ("mcg", "µg", "ug"):
+        return value / 1000.0
+    return value
+
+
+def mineral_color(col, k):
+    low = name_key(col)
+    for pat, color in MINERAL_COLORS:
+        if re.search(pat, low):
+            return color
+    return EXTRA_COLORS[k % len(EXTRA_COLORS)]
 
 
 # ============================== app ==========================================
 st.title("TKPI nutrient lookup")
-st.caption("Pick a food from the dropdown and set the portion.")
-st.caption("Values come from Tabel Komposisi Pangan Indonesia, per 100 g of edible portion (BDD), scaled to your portion.")
-st.caption("Supported by Claude Opus 5.5 (Antropic).")
+st.caption("Pick a food from the dropdown and set the portion. Values come from Tabel Komposisi "
+           "Pangan Indonesia, per 100 g of edible portion (BDD), scaled to your portion.")
 
 path = os.path.join(os.path.dirname(os.path.abspath(__file__)), DATA_FILE)
 if not os.path.exists(path):
@@ -428,13 +463,58 @@ with st.expander("Columns used for the numbers above"):
         used = key_cols[name]
         st.write(f"{name}: {used if used is not None else 'no matching column found in ' + DATA_FILE}")
 
-p_col, f_col, c_col = key_cols["Protein"], key_cols["Fat"], key_cols["Carbohydrate"]
+# energy bar: protein, fat, carbohydrate and fiber
+p_col, f_col, c_col, fb_col = key_cols["Protein"], key_cols["Fat"], key_cols["Carbohydrate"], key_cols["Fiber"]
 if p_col is not None and f_col is not None and c_col is not None:
     p, f, c = X[p_col][i0], X[f_col][i0], X[c_col][i0]
-    if not (pd.isna(p) or pd.isna(f) or pd.isna(c)) and (4 * p + 9 * f + 4 * c) > 0:
-        plot_energy_split(p, f, c)
-        st.pyplot(plt.gcf())
-        plt.close()
+    fb = X[fb_col][i0] if fb_col is not None else np.nan
+    if not (pd.isna(p) or pd.isna(f) or pd.isna(c)):
+        has_fiber = not pd.isna(fb)
+        carb_kcal = 4 * max(c - fb, 0.0) if has_fiber else 4 * c
+        e_parts = [("Protein", 4 * p, SPLIT_COLORS[0]), ("Fat", 9 * f, SPLIT_COLORS[1]),
+                   ("Carbohydrate", carb_kcal, SPLIT_COLORS[2])]
+        if has_fiber:
+            e_parts.append(("Fiber", 2 * fb, SPLIT_COLORS[3]))
+        e_total = 0.0
+        for name, kc, color in e_parts:
+            e_total += kc
+        if e_total > 0:
+            bar = []
+            for name, kc, color in e_parts:
+                bar.append((name, kc, color, f"{name} {100 * kc / e_total:.0f}%"))
+            plot_share_bar(bar, "Share of energy from each macronutrient")
+            st.pyplot(plt.gcf())
+            plt.close()
+            if has_fiber:
+                st.caption("Energy per gram: protein 4, fat 9, carbohydrate 4, fiber 2 kcal. TKPI carbohydrate "
+                           "includes fiber, so fiber is taken out of carbohydrate here to avoid counting it twice.")
+            else:
+                st.caption("Energy per gram: protein 4, fat 9, carbohydrate 4 kcal. Fiber is not reported for this food.")
+
+# mineral bar: share of total mineral content (mg)
+m_parts = []
+m_missing = []
+k = 0
+for col in cols:
+    if category_of(col) != "Minerals":
+        continue
+    v = X[col][i0]
+    short = re.sub(r"\s*\([^)]*\)", "", label_of(col)).strip()
+    if pd.isna(v):
+        m_missing.append(short)
+        continue
+    mg = to_mg(v * factor, unit_of(col))
+    if mg > 0:
+        m_parts.append((short, mg, mineral_color(col, k), f"{short} {fmt(mg)} mg"))
+        k += 1
+if len(m_parts) > 0:
+    plot_share_bar(m_parts, f"Minerals in {edible:.0f} g (share of total mg)")
+    st.pyplot(plt.gcf())
+    plt.close()
+    note = "Iron, zinc and copper occur in much smaller amounts, so they show as thin slices or not at all; their amounts are in the legend."
+    if len(m_missing) > 0:
+        note += " Not reported for this food: " + ", ".join(m_missing) + "."
+    st.caption(note)
 
 for cat in ["Macronutrients", "Minerals", "Vitamins", "Other"]:
     rows = []
