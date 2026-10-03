@@ -36,7 +36,7 @@ CATEGORIES = [
 ]
 KEY_MACROS = [("Energy", r"energi|energy|kkal"), ("Protein", r"protein"), ("Fat", r"lemak|\bfat\b|lipid"),
               ("Carbohydrate", r"karbo|carb|\bkh\b"), ("Fiber", r"serat|fib")]
-SPLIT_COLORS = ["#B23A2E", "#D9A21B", "#4E8F3A"]
+SPLIT_COLORS = ["#27F587", "#FF5E6C", "#FFE161"]
 UNIT_TOKEN = r"^(g|gr|gram|mg|mcg|µg|μg|ug|kal|kkal|kcal|kj|%|iu)$"
 # standard TKPI units per 100 g BDD, used when the file does not state a unit
 DEFAULT_UNITS = [
