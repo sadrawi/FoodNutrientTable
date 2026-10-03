@@ -23,8 +23,12 @@ GROUP_NAMES = {"A": "Serealia", "B": "Umbi berpati", "C": "Kacang/biji/bean",
                "D": "Sayuran", "E": "Buah", "F": "Daging/unggas", "G": "Ikan/kerang/udang",
                "H": "Telur", "J": "Susu", "K": "Lemak/minyak", "M": "Gula/sirup/konfeksioneri",
                "N": "Bumbu"}
-FORM_NAMES = {"R": "mentah/segar", "P": "olahan"}
-SKIP_COL = r"^no\.?$|^nomor|^id$|^unnamed|sumber|source|kode|code|nama|name|kelompok|group"
+FORM_NAMES = {"R": "Mentah/segar", "P": "Olahan"}
+TYPE_COL = r"^tipe|\btipe\b|\btype\b|^jenis|\bjenis\b"
+ALL_GROUPS = "All groups"
+ALL_TYPES = "All types"
+NO_TYPE = "Unspecified"
+SKIP_COL = r"^no\.?$|^nomor|^id$|^unnamed|sumber|source|kode|code|nama|name|kelompok|group|tipe|\btype\b|jenis"
 CATEGORIES = [
     ("Macronutrients", r"energi|energy|kkal|protein|lemak|\bfat\b|lipid|karbo|carb|\bkh\b|serat|fib|^air\b|water|^abu\b|\bash\b"),
     ("Minerals", r"kalsium|calcium|fosfor|phosph|besi|\biron\b|natrium|sodium|kalium|potass|tembaga|copper|seng|zinc"),
@@ -160,8 +164,10 @@ def name_key(col):
     return re.sub(r"[_\s]+", " ", str(col)).strip().lower()
 
 
-def find_col(columns, pattern):
+def find_col(columns, pattern, skip=()):
     for c in columns:
+        if c in skip:
+            continue
         if re.search(pattern, name_key(c)):
             return c
     return None
@@ -233,12 +239,13 @@ def category_of(col):
 @cache_data(show_spinner=False)
 def prepare(df):
     code_col = find_col(df.columns, r"^kode|^code")
-    name_col = find_col(df.columns, r"nama|^name|^food")
+    type_col = find_col(df.columns, TYPE_COL, skip=(code_col,))
+    name_col = find_col(df.columns, r"nama|^name|^food", skip=(code_col, type_col))
     bdd_col = find_col(df.columns, r"bdd|edible")
 
     values = {}
     for c in df.columns:
-        if c == code_col or c == name_col or c == bdd_col:
+        if c == code_col or c == name_col or c == bdd_col or c == type_col:
             continue
         if re.search(SKIP_COL, name_key(c)):
             continue
@@ -255,8 +262,14 @@ def prepare(df):
         m = re.match(r"^([A-Z])([RP])?\d", code)
         group = m.group(1) if m else "?"
         form = m.group(2) if (m and m.group(2)) else ""
+        if type_col is not None:
+            ftype = str(df[type_col].iloc[r]).strip()
+            if ftype == "" or ftype.lower() in ("nan", "none", "-"):
+                ftype = NO_TYPE
+        else:
+            ftype = FORM_NAMES.get(form, NO_TYPE)
         tag = code if code else f"#{r + 1}"
-        rows.append({"code": code, "name": name or code, "group": group, "form": form,
+        rows.append({"code": code, "name": name or code, "group": group, "form": form, "ftype": ftype,
                      "bdd": bdd_all.iloc[r], "label": f"{name or code} ({tag})"})
     info = pd.DataFrame(rows)
     keep = X.notna().any(axis=1).values
@@ -316,7 +329,7 @@ cols = list(X.columns)
 
 # ----------------------------- dropdowns -------------------------------------
 present = sorted(set(info["group"]))
-group_options = ["All groups"]
+group_options = [ALL_GROUPS]
 for g in present:
     if g in GROUP_NAMES:
         group_options.append(f"{g}: {GROUP_NAMES[g]}")
@@ -324,16 +337,33 @@ for g in present:
         group_options.append(g)
 if "?" in present:
     group_options.append("Uncoded")
-group_pick = st.selectbox("Food group", group_options)
+type_values = sorted(set(info["ftype"]))
+type_options = [ALL_TYPES]
+for t in ["Mentah/segar", "Olahan"]:
+    if t in type_values:
+        type_options.append(t)
+for t in type_values:
+    if t not in type_options and t != NO_TYPE:
+        type_options.append(t)
+if NO_TYPE in type_values:
+    type_options.append(NO_TYPE)
 
-if group_pick == "All groups":
-    idx_pool = list(range(len(info)))
-else:
+f1, f2 = st.columns(2)
+with f1:
+    group_pick = st.selectbox("Food group", group_options)
+with f2:
+    type_pick = st.selectbox("Food type (tipe pangan)", type_options)
+
+letter = None
+if group_pick != ALL_GROUPS:
     letter = "?" if group_pick == "Uncoded" else group_pick.split(":")[0]
-    idx_pool = []
-    for i in range(len(info)):
-        if info["group"][i] == letter:
-            idx_pool.append(i)
+idx_pool = []
+for i in range(len(info)):
+    if letter is not None and info["group"][i] != letter:
+        continue
+    if type_pick != ALL_TYPES and info["ftype"][i] != type_pick:
+        continue
+    idx_pool.append(i)
 pool_labels = []
 for i in idx_pool:
     pool_labels.append(info["label"][i])
@@ -348,7 +378,10 @@ with c1:
     grams = st.number_input("Portion (g)", min_value=1.0, max_value=2000.0, value=100.0, step=10.0)
 
 if food_pick == CHOOSE:
-    st.info(f"Choose a food from the dropdown. {len(pool_labels):,} foods in this list.")
+    if len(pool_labels) == 0:
+        st.info("No foods match this group and type. Change one of the filters.")
+    else:
+        st.info(f"Choose a food from the dropdown. {len(pool_labels):,} foods in this list.")
     st.caption(f"Data: {DATA_FILE}, {len(info):,} foods, {len(cols)} nutrient columns.")
     st.stop()
 
@@ -367,8 +400,8 @@ factor = edible / 100.0
 meta = info["code"][i0]
 if info["group"][i0] in GROUP_NAMES:
     meta += f", {GROUP_NAMES[info['group'][i0]]}"
-if info["form"][i0] in FORM_NAMES:
-    meta += f", {FORM_NAMES[info['form'][i0]]}"
+if info["ftype"][i0] != NO_TYPE:
+    meta += f", {info['ftype'][i0]}"
 st.subheader(info["name"][i0])
 st.caption(f"{meta}. Showing {edible:.0f} g edible portion.")
 
