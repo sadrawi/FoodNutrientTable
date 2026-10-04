@@ -37,6 +37,8 @@ CATEGORIES = [
 ]
 KEY_MACROS = [("Energy", r"energi|energy|kkal"), ("Protein", r"protein"), ("Fat", r"lemak|\bfat\b|lipid"),
               ("Carbohydrate", r"karbo|carb|\bkh\b"), ("Fiber", r"serat|fib")]
+# units shown in the summary labels, e.g. "Energy [Kcal]"
+MACRO_UNITS = {"Energy": "Kcal", "Protein": "g", "Fat": "g", "Carbohydrate": "g", "Fiber": "g"}
 SPLIT_COLORS = ["#FF5E6C", "#FFE161", "#27F587", "#6CB8FF"]   # protein, fat, carbohydrate, fiber
 SPLIT_TEXT = "#1E2B21"   # dark labels stay readable on these light colours
 # mineral colours, matched by name so each mineral keeps its colour for every food
@@ -471,12 +473,14 @@ metric_cols = st.columns(len(KEY_MACROS))
 for k in range(len(KEY_MACROS)):
     name = KEY_MACROS[k][0]
     col = key_cols[name]
+    unit = MACRO_UNITS[name]
+    if col is not None and unit_of(col) not in ("", "kcal"):
+        unit = unit_of(col)
+    value = "–"
+    if col is not None and not pd.isna(X[col][i0]):
+        value = fmt(X[col][i0] * factor)
     with metric_cols[k]:
-        if col is None:
-            st.metric(name, "–")
-        else:
-            v = X[col][i0]
-            st.metric(name, "–" if pd.isna(v) else f"{fmt(v * factor)} {unit_of(col)}")
+        st.metric(f"{name} [{unit}]", value)
 
 with st.expander("Columns used for the numbers above"):
     for name, pat in KEY_MACROS:
