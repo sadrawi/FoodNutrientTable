@@ -18,6 +18,7 @@ import streamlit as st
 st.set_page_config(page_title="TKPI nutrient lookup", page_icon="🍚", layout="centered")
 
 DATA_FILE = "tkpi.csv"
+
 DISCLAIMER = "This app is supported by Claude Opus 5.5 Max."
 CHOOSE = "Choose a food…"
 GROUP_NAMES = {"A": "Serealia", "B": "Umbi berpati", "C": "Kacang/biji/bean",
@@ -488,11 +489,6 @@ for k in range(len(KEY_MACROS)):
         st.metric(f"{name} [{unit}]", value)
 with metric_cols[len(KEY_MACROS)]:
     st.metric("BDD [%]", "–" if pd.isna(bdd) else fmt_pct(bdd))
-
-with st.expander("Columns used for the numbers above"):
-    for name, pat in KEY_MACROS:
-        used = key_cols[name]
-        st.write(f"{name}: {used if used is not None else 'no matching column found in ' + DATA_FILE}")
 
 # energy bar: protein, fat, carbohydrate and fiber
 p_col, f_col, c_col, fb_col = key_cols["Protein"], key_cols["Fat"], key_cols["Carbohydrate"], key_cols["Fiber"]
