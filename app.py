@@ -361,7 +361,7 @@ def mineral_color(col, k):
 
 
 # ============================== app ==========================================
-st.title("TKPI nutrient lookup")
+st.title("Tabel Komposisi Pangan Indonesia (TKPI) nutrient lookup")
 st.caption(DISCLAIMER)
 st.caption("Pick a food from the dropdown and set the portion. Values come from Tabel Komposisi "
            "Pangan Indonesia, per 100 g of edible portion (BDD), scaled to your portion.")
