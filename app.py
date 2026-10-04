@@ -490,6 +490,12 @@ for k in range(len(KEY_MACROS)):
 with metric_cols[len(KEY_MACROS)]:
     st.metric("BDD [%]", "–" if pd.isna(bdd) else fmt_pct(bdd))
 
+# collapsed by default; click to see which CSV columns feed the summary numbers
+with st.expander("Columns used for the numbers above", expanded=False):
+    for name, pat in KEY_MACROS:
+        used = key_cols[name]
+        st.write(f"{name}: {used if used is not None else 'no matching column found in ' + DATA_FILE}")
+
 # energy bar: protein, fat, carbohydrate and fiber
 p_col, f_col, c_col, fb_col = key_cols["Protein"], key_cols["Fat"], key_cols["Carbohydrate"], key_cols["Fiber"]
 if p_col is not None and f_col is not None and c_col is not None:
