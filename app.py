@@ -15,7 +15,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import streamlit as st
 
-st.set_page_config(page_title="TKPI nutrient lookup", page_icon="🍚", layout="centered")
+st.set_page_config(page_title="Tabel Komposisi Pangan Indonesia (TKPI)  nutrient lookup", page_icon="🍚", layout="centered")
 
 DATA_FILE = "tkpi.csv"
 
