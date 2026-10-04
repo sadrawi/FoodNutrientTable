@@ -4,6 +4,7 @@
 # Run locally:  streamlit run app.py   (works on Streamlit 1.16 and newer)
 # =============================================================================
 
+import base64
 import csv
 import html
 import io
@@ -12,10 +13,12 @@ import re
 import numpy as np
 import pandas as pd
 import streamlit as st
+from PIL import Image, ImageOps
 
 st.set_page_config(page_title="Tabel Komposisi Pangan Indonesia (TKPI) nutrient lookup", page_icon="🍚", layout="centered")
 
 DATA_FILE = "tkpi.csv"
+HEADER_IMAGES = ["i3L.png", "SHL.png"]   # next to app.py; shown side by side at the top
 
 DISCLAIMER = "This app is supported by Claude Opus 5.5 Max."
 CHOOSE = "Choose a food…"
@@ -44,6 +47,8 @@ APP_CSS = """
 .tkpi-cell {display: flex; flex-direction: column; justify-content: space-between; min-width: 0;}
 .tkpi-label {font-size: 0.875rem; opacity: 0.75; line-height: 1.3;}
 .tkpi-value {font-size: 2.25rem; line-height: 1.2; font-variant-numeric: tabular-nums;}
+.tkpi-hero {display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; align-items: center; margin-bottom: 0.75rem;}
+.tkpi-hero img {width: 100%; height: auto; border-radius: 8px; display: block;}
 .tkpi-row {display: flex; flex-wrap: wrap; gap: 1rem 2rem; margin: 0.5rem 0 0.75rem;}
 .tkpi-bar {flex: 1 1 280px; min-width: 0;}
 .tkpi-bar-title {font-size: 0.85rem; margin-bottom: 0.35rem;}
@@ -317,6 +322,24 @@ def prepare(df):
     return info[keep].reset_index(drop=True), X[keep].reset_index(drop=True)
 
 
+def find_file(folder, name):
+    # GitHub and Streamlit Cloud are case-sensitive, so match "IMG1.JPG" as well as "img1.jpg"
+    for f in os.listdir(folder):
+        if f.lower() == name.lower():
+            return os.path.join(folder, f)
+    return None
+
+
+@cache_data(show_spinner=False)
+def image_data_uri(path, mtime, max_width=800):
+    img = ImageOps.exif_transpose(Image.open(path)).convert("RGB")   # keep phone photos upright
+    if img.width > max_width:
+        img = img.resize((max_width, round(img.height * max_width / img.width)), Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=85)
+    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+
+
 def fmt_pct(v):
     return f"{float(v):g}"
 
@@ -374,14 +397,22 @@ def mineral_color(col, k):
 
 
 # ============================== app ==========================================
-st.title("Tabel Komposisi Pangan Indonesia (TKPI) nutrient lookup")
 st.markdown(APP_CSS, unsafe_allow_html=True)
+here = os.path.dirname(os.path.abspath(__file__))
+hero = ""
+for img_name in HEADER_IMAGES:
+    img_path = find_file(here, img_name)
+    if img_path is not None:
+        hero += f'<img src="{image_data_uri(img_path, os.path.getmtime(img_path))}" alt="{html.escape(img_name)}">'
+if hero:
+    st.markdown(f'<div class="tkpi-hero">{hero}</div>', unsafe_allow_html=True)
+st.title("Tabel Komposisi Pangan Indonesia (TKPI) nutrient lookup")
 with st.expander("About this app", expanded=False):
     st.caption(DISCLAIMER)
     st.caption("Pick a food from the dropdown and set the portion. Values come from Tabel Komposisi "
                "Pangan Indonesia, per 100 g of edible portion (BDD), scaled to your portion.")
 
-path = os.path.join(os.path.dirname(os.path.abspath(__file__)), DATA_FILE)
+path = os.path.join(here, DATA_FILE)
 if not os.path.exists(path):
     st.error(f"{DATA_FILE} was not found. Add your TKPI table to the repository root, next to app.py, "
              f"with the file name {DATA_FILE}.")
