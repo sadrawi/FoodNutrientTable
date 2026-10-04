@@ -18,6 +18,7 @@ import streamlit as st
 st.set_page_config(page_title="TKPI nutrient lookup", page_icon="🍚", layout="centered")
 
 DATA_FILE = "tkpi.csv"
+DISCLAIMER = "This app is supported by Claude Opus 5.5 Max."
 CHOOSE = "Choose a food…"
 GROUP_NAMES = {"A": "Serealia", "B": "Umbi berpati", "C": "Kacang/biji/bean",
                "D": "Sayuran", "E": "Buah", "F": "Daging/unggas", "G": "Ikan/kerang/udang",
@@ -308,19 +309,22 @@ def fmt(v):
 
 
 # ----------------------------- plot ------------------------------------------
-def plot_share_bar(parts, title):
+def plot_share_bar(parts, title, width=6.5, ncol_max=4, name_min=0.22):
     # parts: list of (short name, value, colour, legend text)
     total = 0.0
     for name, value, color, legend_text in parts:
         total += value
-    ncol = len(parts) if len(parts) <= 4 else 3
+    if len(parts) <= ncol_max:
+        ncol = len(parts)
+    else:
+        ncol = min(3, ncol_max)
     n_rows = (len(parts) + ncol - 1) // ncol
-    plt.figure(figsize=(6.5, 1.25 + 0.28 * n_rows))
+    plt.figure(figsize=(width, 1.25 + 0.28 * n_rows))
     left = 0.0
     for name, value, color, legend_text in parts:
         share = value / total
         plt.barh([0], [share], left=left, color=color, height=0.6, label=legend_text)
-        if share > 0.22:
+        if share > name_min:
             text = f"{name} {share * 100:.0f}%"
         elif share > 0.08:
             text = f"{share * 100:.0f}%"
@@ -357,6 +361,7 @@ def mineral_color(col, k):
 
 # ============================== app ==========================================
 st.title("TKPI nutrient lookup")
+st.caption(DISCLAIMER)
 st.caption("Pick a food from the dropdown and set the portion. Values come from Tabel Komposisi "
            "Pangan Indonesia, per 100 g of edible portion (BDD), scaled to your portion.")
 
@@ -539,14 +544,20 @@ for col in cols:
         trace_parts.append(part)
     else:
         major_parts.append(part)
-if len(major_parts) > 0:
-    plot_share_bar(major_parts, f"Major minerals in {edible:.0f} g (share of their total mg)")
-    st.pyplot(plt.gcf())
-    plt.close()
-if len(trace_parts) > 0:
-    plot_share_bar(trace_parts, f"Trace minerals in {edible:.0f} g (share of their total mg)")
-    st.pyplot(plt.gcf())
-    plt.close()
+if len(major_parts) > 0 or len(trace_parts) > 0:
+    m_left, m_right = st.columns(2)
+    if len(major_parts) > 0:
+        with m_left:
+            plot_share_bar(major_parts, f"Major minerals in {edible:.0f} g (share of mg)",
+                           width=4.6, ncol_max=2, name_min=0.32)
+            st.pyplot(plt.gcf())
+            plt.close()
+    if len(trace_parts) > 0:
+        with (m_right if len(major_parts) > 0 else m_left):
+            plot_share_bar(trace_parts, f"Trace minerals in {edible:.0f} g (share of mg)",
+                           width=4.6, ncol_max=2, name_min=0.32)
+            st.pyplot(plt.gcf())
+            plt.close()
 if len(major_parts) > 0 or len(trace_parts) > 0:
     note = ("Trace minerals (iron, zinc, copper) have their own bar because they occur in amounts "
             "far smaller than calcium, phosphorus, sodium and potassium.")
