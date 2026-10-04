@@ -594,6 +594,8 @@ if len(major_parts) > 0 or len(trace_parts) > 0:
     if len(m_missing) > 0:
         note += " Not reported for this food: " + ", ".join(m_missing) + "."
     st.caption(note)
+elif len(m_missing) > 0:
+    st.caption("No mineral values are reported in TKPI for this food, so there are no mineral bars.")
 
 for cat in ["Macronutrients", "Minerals", "Vitamins", "Other"]:
     rows = []
