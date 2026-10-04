@@ -516,11 +516,30 @@ if p_col is not None and f_col is not None and c_col is not None:
             plot_share_bar(bar, "Share of energy from each macronutrient")
             st.pyplot(plt.gcf())
             plt.close()
+            # show the calculation for this portion so it can be checked against the Energy figure
+            pp, ff, cc = p * factor, f * factor, c * factor
             if has_fiber:
-                st.caption("Energy per gram: protein 4, fat 9, carbohydrate 4, fiber 2 kcal. TKPI carbohydrate "
-                           "includes fiber, so fiber is taken out of carbohydrate here to avoid counting it twice.")
+                fbp = fb * factor
+                calc = (f"4 × {fmt(pp)} + 9 × {fmt(ff)} + 4 × ({fmt(cc)} − {fmt(fbp)}) + 2 × {fmt(fbp)} "
+                        f"= {fmt(e_total * factor)} kcal")
+                rule = ("The bar counts 4 kcal per gram of protein, 9 per gram of fat, 4 per gram of carbohydrate "
+                        "and 2 per gram of fiber. TKPI carbohydrate includes fiber, so fiber is taken out of "
+                        "carbohydrate first.")
             else:
-                st.caption("Energy per gram: protein 4, fat 9, carbohydrate 4 kcal. Fiber is not reported for this food.")
+                calc = f"4 × {fmt(pp)} + 9 × {fmt(ff)} + 4 × {fmt(cc)} = {fmt(e_total * factor)} kcal"
+                rule = ("The bar counts 4 kcal per gram of protein, 9 per gram of fat and 4 per gram of "
+                        "carbohydrate. Fiber is not reported for this food.")
+            msg = rule + f" For {edible:.0f} g: {calc}"
+            e_col = key_cols["Energy"]
+            if e_col is not None and not pd.isna(X[e_col][i0]):
+                tkpi_e = X[e_col][i0] * factor
+                msg += f"; TKPI lists {fmt(tkpi_e)} kcal."
+                if tkpi_e > 0 and abs(e_total * factor - tkpi_e) / tkpi_e > 0.10:
+                    msg += (" The two differ because TKPI's energy value is calculated its own way, for example "
+                            "counting all carbohydrate, fiber included, at 4 kcal per gram.")
+            else:
+                msg += "."
+            st.caption(msg)
 
 # mineral bars: major minerals and trace minerals, each as share of its total mg
 major_parts = []
