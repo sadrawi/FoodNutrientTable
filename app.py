@@ -22,7 +22,7 @@ CHOOSE = "Choose a food…"
 GROUP_NAMES = {"A": "Serealia", "B": "Umbi berpati", "C": "Kacang/biji/bean",
                "D": "Sayuran", "E": "Buah", "F": "Daging/unggas", "G": "Ikan/kerang/udang",
                "H": "Telur", "J": "Susu", "K": "Lemak/minyak", "M": "Gula/sirup/konfeksioneri",
-               "N": "Bumbu"}
+               "N": "Bumbu", "Q": "Minuman"}
 FORM_NAMES = {"R": "Mentah/segar", "P": "Olahan"}
 TYPE_COL = r"^tipe|\btipe\b|\btype\b|^jenis|\bjenis\b"
 ALL_GROUPS = "All groups"
@@ -31,7 +31,8 @@ NO_TYPE = "Unspecified"
 SKIP_COL = r"^no\.?$|^nomor|^id$|^unnamed|sumber|source|kode|code|nama|name|kelompok|group|tipe|\btype\b|jenis"
 CATEGORIES = [
     ("Macronutrients", r"energi|energy|kkal|protein|lemak|\bfat\b|lipid|karbo|carb|\bkh\b|serat|fib|^air\b|water|^abu\b|\bash\b"),
-    ("Minerals", r"kalsium|calcium|fosfor|phosph|besi|\biron\b|natrium|sodium|kalium|potass|tembaga|copper|seng|zinc"),
+    ("Minerals", r"kalsium|calcium|fosfor|phosph|besi|\biron\b|natrium|sodium|kalium|potass|tembaga|copper|seng|zinc"
+                 r"|^(ca|p|fe|na|k|cu|zn)\b"),
     ("Vitamins", r"retinol|karoten|carot|b[-_ ]?kar|β|thiamin|tiamin|ribofla|niasin|niacin|vit|ascorb"),
 ]
 KEY_MACROS = [("Energy", r"energi|energy|kkal"), ("Protein", r"protein"), ("Fat", r"lemak|\bfat\b|lipid"),
@@ -40,14 +41,15 @@ SPLIT_COLORS = ["#FF5E6C", "#FFE161", "#27F587", "#6CB8FF"]   # protein, fat, ca
 SPLIT_TEXT = "#1E2B21"   # dark labels stay readable on these light colours
 # mineral colours, matched by name so each mineral keeps its colour for every food
 MINERAL_COLORS = [
-    (r"kalsium|calcium", "#A0D8FF"),
-    (r"fosfor|phosph", "#C3A6FF"),
-    (r"besi|\biron\b", "#FF9E5E"),
-    (r"natrium|sodium", "#B8C0CC"),
-    (r"kalium|potass", "#4EE0C6"),
-    (r"tembaga|copper", "#F59BD8"),
-    (r"seng|zinc", "#D4F06A"),
+    (r"kalsium|calcium|^ca\b", "#A0D8FF"),
+    (r"fosfor|phosph|^p\b", "#C3A6FF"),
+    (r"besi|\biron\b|^fe\b", "#FF9E5E"),
+    (r"natrium|sodium|^na\b", "#B8C0CC"),
+    (r"kalium|potass|^k\b", "#4EE0C6"),
+    (r"tembaga|copper|^cu\b", "#F59BD8"),
+    (r"seng|zinc|^zn\b", "#D4F06A"),
 ]
+TRACE_MINERAL = r"besi|\biron\b|^fe\b|tembaga|copper|^cu\b|seng|zinc|^zn\b"
 EXTRA_COLORS = ["#FFC4A3", "#9FE7F5", "#E2D4FF", "#FFE7A0"]
 UNIT_TOKEN = r"^(g|gr|gram|mg|mcg|µg|μg|ug|kal|kkal|kcal|kj|%|iu)$"
 # standard TKPI units per 100 g BDD, used when the file does not state a unit
@@ -56,6 +58,7 @@ DEFAULT_UNITS = [
     (r"retinol|karoten|carot|b[-_ ]?kar|β", "mcg"),
     (r"^air\b|water|protein|lemak|\bfat\b|lipid|karbo|carb|\bkh\b|serat|fib|^abu\b|\bash\b", "g"),
     (r"kalsium|calcium|fosfor|phosph|besi|\biron\b|natrium|sodium|kalium|potass|tembaga|copper|seng|zinc"
+     r"|^(ca|p|fe|na|k|cu|zn)\b"
      r"|thiamin|tiamin|ribofla|niasin|niacin|vit|ascorb", "mg"),
 ]
 DISPLAY = {"kh": "Karbohidrat", "b-kar": "Beta-karoten", "b kar": "Beta-karoten", "b karoten": "Beta-karoten",
@@ -288,6 +291,10 @@ def prepare(df):
     return info[keep].reset_index(drop=True), X[keep].reset_index(drop=True)
 
 
+def fmt_pct(v):
+    return f"{float(v):g}"
+
+
 def fmt(v):
     if v is None or pd.isna(v):
         return "not reported"
@@ -428,7 +435,7 @@ bdd = info["bdd"][i0]
 use_bdd = False
 with c2:
     if not pd.isna(bdd) and bdd < 100:
-        use_bdd = st.checkbox(f"Weight includes inedible parts (BDD {bdd:.0f}%)", value=False,
+        use_bdd = st.checkbox(f"Weight includes inedible parts (BDD {fmt_pct(bdd)}%)", value=False,
                               help="Tick this if the weight is for the whole food as bought, "
                                    "for example a banana with its peel.")
 edible = grams * bdd / 100 if use_bdd else grams
@@ -442,6 +449,19 @@ if info["ftype"][i0] != NO_TYPE:
     meta += f", {info['ftype'][i0]}"
 st.subheader(info["name"][i0])
 st.caption(f"{meta}. Showing {edible:.0f} g edible portion.")
+
+if pd.isna(bdd):
+    st.markdown("**Edible portion (BDD):** not reported in TKPI for this food")
+elif bdd >= 100:
+    st.markdown("**Edible portion (BDD):** 100%, the whole food as bought is edible")
+else:
+    st.markdown(f"**Edible portion (BDD):** {fmt_pct(bdd)}% of the food as bought is edible")
+    if use_bdd:
+        st.caption(f"{grams:.0f} g as bought × {fmt_pct(bdd)}% = {edible:.0f} g edible. The nutrients below are for "
+                   "the edible part.")
+    else:
+        st.caption(f"If {grams:.0f} g is the weight as bought (with peel, bones or seeds), tick the box above "
+                   f"to use {grams * bdd / 100:.0f} g edible instead.")
 
 key_cols = {}
 for name, pat in KEY_MACROS:
@@ -491,8 +511,9 @@ if p_col is not None and f_col is not None and c_col is not None:
             else:
                 st.caption("Energy per gram: protein 4, fat 9, carbohydrate 4 kcal. Fiber is not reported for this food.")
 
-# mineral bar: share of total mineral content (mg)
-m_parts = []
+# mineral bars: major minerals and trace minerals, each as share of its total mg
+major_parts = []
+trace_parts = []
 m_missing = []
 k = 0
 for col in cols:
@@ -504,14 +525,25 @@ for col in cols:
         m_missing.append(short)
         continue
     mg = to_mg(v * factor, unit_of(col))
-    if mg > 0:
-        m_parts.append((short, mg, mineral_color(col, k), f"{short} {fmt(mg)} mg"))
-        k += 1
-if len(m_parts) > 0:
-    plot_share_bar(m_parts, f"Minerals in {edible:.0f} g (share of total mg)")
+    if mg <= 0:
+        continue
+    part = (short, mg, mineral_color(col, k), f"{short} {fmt(mg)} mg")
+    k += 1
+    if re.search(TRACE_MINERAL, name_key(col)):
+        trace_parts.append(part)
+    else:
+        major_parts.append(part)
+if len(major_parts) > 0:
+    plot_share_bar(major_parts, f"Major minerals in {edible:.0f} g (share of their total mg)")
     st.pyplot(plt.gcf())
     plt.close()
-    note = "Iron, zinc and copper occur in much smaller amounts, so they show as thin slices or not at all; their amounts are in the legend."
+if len(trace_parts) > 0:
+    plot_share_bar(trace_parts, f"Trace minerals in {edible:.0f} g (share of their total mg)")
+    st.pyplot(plt.gcf())
+    plt.close()
+if len(major_parts) > 0 or len(trace_parts) > 0:
+    note = ("Trace minerals (iron, zinc, copper) have their own bar because they occur in amounts "
+            "far smaller than calcium, phosphorus, sodium and potassium.")
     if len(m_missing) > 0:
         note += " Not reported for this food: " + ", ".join(m_missing) + "."
     st.caption(note)
@@ -529,5 +561,6 @@ for cat in ["Macronutrients", "Minerals", "Vitamins", "Other"]:
     st.markdown(f"**{cat}**")
     st.dataframe(pd.DataFrame(rows).set_index("Nutrient"))
 
-st.caption(f"Data: {DATA_FILE}, {len(info):,} foods, {len(cols)} nutrient columns. "
-           "Values marked not reported are missing in TKPI for this food.")
+bdd_known = int(info["bdd"].notna().sum())
+st.caption(f"Data: {DATA_FILE}, {len(info):,} foods, {len(cols)} nutrient columns, BDD for "
+           f"{bdd_known:,} foods. Values marked not reported are missing in TKPI for this food.")
