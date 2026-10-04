@@ -11,9 +11,6 @@ import os
 import re
 import numpy as np
 import pandas as pd
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import streamlit as st
 
 st.set_page_config(page_title="Tabel Komposisi Pangan Indonesia (TKPI) nutrient lookup", page_icon="🍚", layout="centered")
@@ -41,15 +38,26 @@ CATEGORIES = [
 KEY_MACROS = [("Energy", r"energi|energy|kkal"), ("Protein", r"protein"), ("Fat", r"lemak|\bfat\b|lipid"),
               ("Carbohydrate", r"karbo|carb|\bkh\b"), ("Fiber", r"serat|fib")]
 # summary grid drawn with HTML so it stays 3 by 2 on phones (st.columns always stacks on narrow screens)
-GRID_CSS = """
+APP_CSS = """
 <style>
 .tkpi-grid {display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem 1rem; margin: 0.25rem 0 1rem;}
 .tkpi-cell {display: flex; flex-direction: column; justify-content: space-between; min-width: 0;}
 .tkpi-label {font-size: 0.875rem; opacity: 0.75; line-height: 1.3;}
 .tkpi-value {font-size: 2.25rem; line-height: 1.2; font-variant-numeric: tabular-nums;}
+.tkpi-row {display: flex; flex-wrap: wrap; gap: 1rem 2rem; margin: 0.5rem 0 0.75rem;}
+.tkpi-bar {flex: 1 1 280px; min-width: 0;}
+.tkpi-bar-title {font-size: 0.85rem; margin-bottom: 0.35rem;}
+.tkpi-track {display: flex; height: 2.1rem; border-radius: 6px; overflow: hidden;}
+.tkpi-seg {display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap;
+           font-size: 0.85rem; font-weight: 700; color: #1E2B21;}
+.tkpi-legend {display: flex; flex-wrap: wrap; gap: 0.2rem 1.1rem; margin-top: 0.45rem; font-size: 0.85rem;}
+.tkpi-key {display: inline-flex; align-items: center; gap: 0.35rem;}
+.tkpi-swatch {width: 0.75rem; height: 0.75rem; border-radius: 2px; display: inline-block;}
 @media (max-width: 640px) {
   .tkpi-label {font-size: 0.8rem;}
   .tkpi-value {font-size: 1.6rem;}
+  .tkpi-name {display: none;}
+  .tkpi-seg {font-size: 0.75rem;}
 }
 </style>
 """
@@ -324,37 +332,28 @@ def fmt(v):
 
 
 # ----------------------------- plot ------------------------------------------
-def plot_share_bar(parts, title, width=6.5, ncol_max=4, name_min=0.22):
-    # parts: list of (short name, value, colour, legend text)
+def share_bar_html(parts, title, name_min=0.3):
+    # parts: list of (short name, value, colour, legend text); returns one stacked bar as HTML
     total = 0.0
     for name, value, color, legend_text in parts:
         total += value
-    if len(parts) <= ncol_max:
-        ncol = len(parts)
-    else:
-        ncol = min(3, ncol_max)
-    n_rows = (len(parts) + ncol - 1) // ncol
-    plt.figure(figsize=(width, 1.25 + 0.28 * n_rows))
-    left = 0.0
+    segs = ""
+    keys = ""
     for name, value, color, legend_text in parts:
         share = value / total
-        plt.barh([0], [share], left=left, color=color, height=0.6, label=legend_text)
-        if share > name_min:
-            text = f"{name} {share * 100:.0f}%"
-        elif share > 0.08:
-            text = f"{share * 100:.0f}%"
+        pct = f"{share * 100:.0f}%"
+        if share >= name_min:
+            text = f'<span class="tkpi-name">{html.escape(name)}&nbsp;</span>{pct}'
+        elif share >= 0.08:
+            text = pct
         else:
             text = ""
-        if text:
-            plt.text(left + share / 2, 0, text, ha="center", va="center",
-                     color=SPLIT_TEXT, fontsize=10, fontweight="bold")
-        left += share
-    plt.xlim(0, 1)
-    plt.axis("off")
-    plt.legend(ncol=ncol, loc="upper left", bbox_to_anchor=(0.0, 0.05, 1.0, 0.0), mode="expand",
-               frameon=False, fontsize=9, handlelength=1.2, columnspacing=0.8)
-    plt.title(title, fontsize=9, loc="left")
-    plt.tight_layout()
+        segs += (f'<div class="tkpi-seg" style="width:{share * 100:.3f}%;background:{color}" '
+                 f'title="{html.escape(legend_text)}">{text}</div>')
+        keys += (f'<span class="tkpi-key"><span class="tkpi-swatch" style="background:{color}"></span>'
+                 f'{html.escape(legend_text)}</span>')
+    return (f'<div class="tkpi-bar"><div class="tkpi-bar-title">{html.escape(title)}</div>'
+            f'<div class="tkpi-track">{segs}</div><div class="tkpi-legend">{keys}</div></div>')
 
 
 def to_mg(value, unit):
@@ -376,6 +375,7 @@ def mineral_color(col, k):
 
 # ============================== app ==========================================
 st.title("Tabel Komposisi Pangan Indonesia (TKPI) nutrient lookup")
+st.markdown(APP_CSS, unsafe_allow_html=True)
 st.caption(DISCLAIMER)
 st.caption("Pick a food from the dropdown and set the portion. Values come from Tabel Komposisi "
            "Pangan Indonesia, per 100 g of edible portion (BDD), scaled to your portion.")
@@ -508,7 +508,7 @@ for label, value in summary:
     grid += (f'<div class="tkpi-cell"><div class="tkpi-label">{html.escape(label)}</div>'
              f'<div class="tkpi-value">{html.escape(value)}</div></div>')
 grid += "</div>"
-st.markdown(GRID_CSS + grid, unsafe_allow_html=True)
+st.markdown(grid, unsafe_allow_html=True)
 
 # energy bar: protein, fat, carbohydrate and fiber
 p_col, f_col, c_col, fb_col = key_cols["Protein"], key_cols["Fat"], key_cols["Carbohydrate"], key_cols["Fiber"]
@@ -529,9 +529,9 @@ if p_col is not None and f_col is not None and c_col is not None:
             bar = []
             for name, kc, color in e_parts:
                 bar.append((name, kc, color, f"{name} {100 * kc / e_total:.0f}%"))
-            plot_share_bar(bar, "Share of energy from each macronutrient")
-            st.pyplot(plt.gcf())
-            plt.close()
+            st.markdown('<div class="tkpi-row">' + share_bar_html(bar, "Share of energy from each macronutrient",
+                                                                   name_min=0.22) + "</div>",
+                        unsafe_allow_html=True)
             # show the calculation for this portion so it can be checked against the Energy figure
             pp, ff, cc = p * factor, f * factor, c * factor
             if has_fiber:
@@ -581,19 +581,13 @@ for col in cols:
     else:
         major_parts.append(part)
 if len(major_parts) > 0 or len(trace_parts) > 0:
-    m_left, m_right = st.columns(2)
+    row = '<div class="tkpi-row">'
     if len(major_parts) > 0:
-        with m_left:
-            plot_share_bar(major_parts, f"Major minerals in {edible:.0f} g (share of mg)",
-                           width=4.6, ncol_max=2, name_min=0.32)
-            st.pyplot(plt.gcf())
-            plt.close()
+        row += share_bar_html(major_parts, f"Major minerals in {edible:.0f} g (share of mg)")
     if len(trace_parts) > 0:
-        with (m_right if len(major_parts) > 0 else m_left):
-            plot_share_bar(trace_parts, f"Trace minerals in {edible:.0f} g (share of mg)",
-                           width=4.6, ncol_max=2, name_min=0.32)
-            st.pyplot(plt.gcf())
-            plt.close()
+        row += share_bar_html(trace_parts, f"Trace minerals in {edible:.0f} g (share of mg)")
+    row += "</div>"
+    st.markdown(row, unsafe_allow_html=True)
 if len(major_parts) > 0 or len(trace_parts) > 0:
     note = ("Trace minerals (iron, zinc, copper) have their own bar because they occur in amounts "
             "far smaller than calcium, phosphorus, sodium and potassium.")
