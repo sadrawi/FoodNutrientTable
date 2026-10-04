@@ -503,20 +503,20 @@ if info["group"][i0] in GROUP_NAMES:
 if info["ftype"][i0] != NO_TYPE:
     meta += f", {info['ftype'][i0]}"
 st.subheader(info["name"][i0])
-with st.expander("Food details and edible portion (BDD)", expanded=False):
-    st.caption(f"{meta}. Showing {edible:.0f} g edible portion.")
-    if pd.isna(bdd):
-        st.markdown("**Edible portion (BDD):** not reported in TKPI for this food")
-    elif bdd >= 100:
-        st.markdown("**Edible portion (BDD):** 100%, the whole food as bought is edible")
-    else:
-        st.markdown(f"**Edible portion (BDD):** {fmt_pct(bdd)}% of the food as bought is edible")
-        if use_bdd:
-            st.caption(f"{grams:.0f} g as bought × {fmt_pct(bdd)}% = {edible:.0f} g edible. The nutrients below "
-                       "are for the edible part.")
-        else:
-            st.caption(f"If {grams:.0f} g is the weight as bought (with peel, bones or seeds), tick the box "
-                       f"above to use {grams * bdd / 100:.0f} g edible instead.")
+# with st.expander("Food details and edible portion (BDD)", expanded=False):
+#     st.caption(f"{meta}. Showing {edible:.0f} g edible portion.")
+#     if pd.isna(bdd):
+#         st.markdown("**Edible portion (BDD):** not reported in TKPI for this food")
+#     elif bdd >= 100:
+#         st.markdown("**Edible portion (BDD):** 100%, the whole food as bought is edible")
+#     else:
+#         st.markdown(f"**Edible portion (BDD):** {fmt_pct(bdd)}% of the food as bought is edible")
+#         if use_bdd:
+#             st.caption(f"{grams:.0f} g as bought × {fmt_pct(bdd)}% = {edible:.0f} g edible. The nutrients below "
+#                        "are for the edible part.")
+#         else:
+#             st.caption(f"If {grams:.0f} g is the weight as bought (with peel, bones or seeds), tick the box "
+#                        f"above to use {grams * bdd / 100:.0f} g edible instead.")
 
 key_cols = {}
 for name, pat in KEY_MACROS:
