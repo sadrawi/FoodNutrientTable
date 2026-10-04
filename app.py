@@ -1,7 +1,7 @@
 # =============================================================================
 # TKPI nutrient lookup — pick a food from the dropdown, get its nutrients
 # Data: tkpi.csv in the same folder as this file (repository root)
-# Run locally:  streamlit run app.py   (works on Streamlit 1.12 and newer)
+# Run locally:  streamlit run app.py   (works on Streamlit 1.16 and newer)
 # =============================================================================
 
 import csv
@@ -15,7 +15,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import streamlit as st
 
-st.set_page_config(page_title="Tabel Komposisi Pangan Indonesia (TKPI)  nutrient lookup", page_icon="🍚", layout="centered")
+st.set_page_config(page_title="Tabel Komposisi Pangan Indonesia (TKPI) nutrient lookup", page_icon="🍚", layout="centered")
 
 DATA_FILE = "tkpi.csv"
 
@@ -424,10 +424,11 @@ food_options = [CHOOSE]
 for lab in pool_labels:
     food_options.append(lab)
 
-food_pick = st.selectbox("Food (click, then type to search)", food_options, index=0)
-
-c1, c2 = st.columns([1, 1])
+# second row: food (left) and portion (right); the BDD checkbox appears under the portion
+c1, c2 = st.columns(2)
 with c1:
+    food_pick = st.selectbox("Food (click, then type to search)", food_options, index=0)
+with c2:
     grams = st.number_input("Portion (g)", min_value=1.0, max_value=2000.0, value=100.0, step=10.0)
 
 if food_pick == CHOOSE:
