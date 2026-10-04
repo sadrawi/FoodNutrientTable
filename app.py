@@ -5,6 +5,7 @@
 # =============================================================================
 
 import csv
+import html
 import io
 import os
 import re
@@ -39,6 +40,19 @@ CATEGORIES = [
 ]
 KEY_MACROS = [("Energy", r"energi|energy|kkal"), ("Protein", r"protein"), ("Fat", r"lemak|\bfat\b|lipid"),
               ("Carbohydrate", r"karbo|carb|\bkh\b"), ("Fiber", r"serat|fib")]
+# summary grid drawn with HTML so it stays 3 by 2 on phones (st.columns always stacks on narrow screens)
+GRID_CSS = """
+<style>
+.tkpi-grid {display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem 1rem; margin: 0.25rem 0 1rem;}
+.tkpi-cell {display: flex; flex-direction: column; justify-content: space-between; min-width: 0;}
+.tkpi-label {font-size: 0.875rem; opacity: 0.75; line-height: 1.3;}
+.tkpi-value {font-size: 2.25rem; line-height: 1.2; font-variant-numeric: tabular-nums;}
+@media (max-width: 640px) {
+  .tkpi-label {font-size: 0.8rem;}
+  .tkpi-value {font-size: 1.6rem;}
+}
+</style>
+"""
 # units shown in the summary labels, e.g. "Energy [Kcal]"
 MACRO_UNITS = {"Energy": "Kcal", "Protein": "g", "Fat": "g", "Carbohydrate": "g", "Fiber": "g"}
 SPLIT_COLORS = ["#FF5E6C", "#FFE161", "#27F587", "#6CB8FF"]   # protein, fat, carbohydrate, fiber
@@ -489,12 +503,12 @@ for k in range(len(KEY_MACROS)):
         value = fmt(X[col][i0] * factor)
     summary.append((f"{name} [{unit}]", value))
 summary.append(("BDD [%]", "–" if pd.isna(bdd) else fmt_pct(bdd)))
-for start in range(0, len(summary), 3):
-    row = st.columns(3)
-    for j in range(3):
-        if start + j < len(summary):
-            with row[j]:
-                st.metric(summary[start + j][0], summary[start + j][1])
+grid = '<div class="tkpi-grid">'
+for label, value in summary:
+    grid += (f'<div class="tkpi-cell"><div class="tkpi-label">{html.escape(label)}</div>'
+             f'<div class="tkpi-value">{html.escape(value)}</div></div>')
+grid += "</div>"
+st.markdown(GRID_CSS + grid, unsafe_allow_html=True)
 
 # energy bar: protein, fat, carbohydrate and fiber
 p_col, f_col, c_col, fb_col = key_cols["Protein"], key_cols["Fat"], key_cols["Carbohydrate"], key_cols["Fiber"]
