@@ -476,7 +476,8 @@ key_cols = {}
 for name, pat in KEY_MACROS:
     key_cols[name] = find_col(cols, pat)
 
-metric_cols = st.columns(len(KEY_MACROS) + 1)
+# summary numbers in a 3 by 2 grid: Energy, Protein, Fat / Carbohydrate, Fiber, BDD
+summary = []
 for k in range(len(KEY_MACROS)):
     name = KEY_MACROS[k][0]
     col = key_cols[name]
@@ -486,10 +487,14 @@ for k in range(len(KEY_MACROS)):
     value = "–"
     if col is not None and not pd.isna(X[col][i0]):
         value = fmt(X[col][i0] * factor)
-    with metric_cols[k]:
-        st.metric(f"{name} [{unit}]", value)
-with metric_cols[len(KEY_MACROS)]:
-    st.metric("BDD [%]", "–" if pd.isna(bdd) else fmt_pct(bdd))
+    summary.append((f"{name} [{unit}]", value))
+summary.append(("BDD [%]", "–" if pd.isna(bdd) else fmt_pct(bdd)))
+for start in range(0, len(summary), 3):
+    row = st.columns(3)
+    for j in range(3):
+        if start + j < len(summary):
+            with row[j]:
+                st.metric(summary[start + j][0], summary[start + j][1])
 
 # energy bar: protein, fat, carbohydrate and fiber
 p_col, f_col, c_col, fb_col = key_cols["Protein"], key_cols["Fat"], key_cols["Carbohydrate"], key_cols["Fiber"]
