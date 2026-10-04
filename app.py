@@ -43,11 +43,11 @@ SPLIT_COLORS = ["#FF5E6C", "#FFE161", "#27F587", "#6CB8FF"]   # protein, fat, ca
 SPLIT_TEXT = "#1E2B21"   # dark labels stay readable on these light colours
 # mineral colours, matched by name so each mineral keeps its colour for every food
 MINERAL_COLORS = [
-    (r"kalsium|calcium|^ca\b", "#A0D8FF"),
-    (r"fosfor|phosph|^p\b", "#C3A6FF"),
+    (r"kalsium|calcium|^ca\b", "#4C97FF"),
+    (r"fosfor|phosph|^p\b", "#A877FF"),
     (r"besi|\biron\b|^fe\b", "#FF9E5E"),
-    (r"natrium|sodium|^na\b", "#B8C0CC"),
-    (r"kalium|potass|^k\b", "#4EE0C6"),
+    (r"natrium|sodium|^na\b", "#FFB020"),
+    (r"kalium|potass|^k\b", "#22CCA0"),
     (r"tembaga|copper|^cu\b", "#F59BD8"),
     (r"seng|zinc|^zn\b", "#D4F06A"),
 ]
@@ -469,7 +469,7 @@ key_cols = {}
 for name, pat in KEY_MACROS:
     key_cols[name] = find_col(cols, pat)
 
-metric_cols = st.columns(len(KEY_MACROS))
+metric_cols = st.columns(len(KEY_MACROS) + 1)
 for k in range(len(KEY_MACROS)):
     name = KEY_MACROS[k][0]
     col = key_cols[name]
@@ -481,6 +481,8 @@ for k in range(len(KEY_MACROS)):
         value = fmt(X[col][i0] * factor)
     with metric_cols[k]:
         st.metric(f"{name} [{unit}]", value)
+with metric_cols[len(KEY_MACROS)]:
+    st.metric("BDD [%]", "–" if pd.isna(bdd) else fmt_pct(bdd))
 
 with st.expander("Columns used for the numbers above"):
     for name, pat in KEY_MACROS:
