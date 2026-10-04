@@ -18,7 +18,7 @@ from PIL import Image, ImageOps
 st.set_page_config(page_title="Tabel Komposisi Pangan Indonesia (TKPI) nutrient lookup", page_icon="🍚", layout="centered")
 
 DATA_FILE = "tkpi.csv"
-HEADER_IMAGES = ["i3L.png", "SHL.png"]   # next to app.py; shown side by side at the top
+HEADER_IMAGES = ["SHL.png", "i3L.png"]   # next to app.py; shown side by side at the top
 
 DISCLAIMER = "This app is supported by Claude Opus 5.5 Max."
 CHOOSE = "Choose a food…"
