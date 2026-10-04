@@ -376,9 +376,10 @@ def mineral_color(col, k):
 # ============================== app ==========================================
 st.title("Tabel Komposisi Pangan Indonesia (TKPI) nutrient lookup")
 st.markdown(APP_CSS, unsafe_allow_html=True)
-st.caption(DISCLAIMER)
-st.caption("Pick a food from the dropdown and set the portion. Values come from Tabel Komposisi "
-           "Pangan Indonesia, per 100 g of edible portion (BDD), scaled to your portion.")
+with st.expander("About this app", expanded=False):
+    st.caption(DISCLAIMER)
+    st.caption("Pick a food from the dropdown and set the portion. Values come from Tabel Komposisi "
+               "Pangan Indonesia, per 100 g of edible portion (BDD), scaled to your portion.")
 
 path = os.path.join(os.path.dirname(os.path.abspath(__file__)), DATA_FILE)
 if not os.path.exists(path):
@@ -471,20 +472,20 @@ if info["group"][i0] in GROUP_NAMES:
 if info["ftype"][i0] != NO_TYPE:
     meta += f", {info['ftype'][i0]}"
 st.subheader(info["name"][i0])
-st.caption(f"{meta}. Showing {edible:.0f} g edible portion.")
-
-if pd.isna(bdd):
-    st.markdown("**Edible portion (BDD):** not reported in TKPI for this food")
-elif bdd >= 100:
-    st.markdown("**Edible portion (BDD):** 100%, the whole food as bought is edible")
-else:
-    st.markdown(f"**Edible portion (BDD):** {fmt_pct(bdd)}% of the food as bought is edible")
-    if use_bdd:
-        st.caption(f"{grams:.0f} g as bought × {fmt_pct(bdd)}% = {edible:.0f} g edible. The nutrients below are for "
-                   "the edible part.")
+with st.expander("Food details and edible portion (BDD)", expanded=False):
+    st.caption(f"{meta}. Showing {edible:.0f} g edible portion.")
+    if pd.isna(bdd):
+        st.markdown("**Edible portion (BDD):** not reported in TKPI for this food")
+    elif bdd >= 100:
+        st.markdown("**Edible portion (BDD):** 100%, the whole food as bought is edible")
     else:
-        st.caption(f"If {grams:.0f} g is the weight as bought (with peel, bones or seeds), tick the box above "
-                   f"to use {grams * bdd / 100:.0f} g edible instead.")
+        st.markdown(f"**Edible portion (BDD):** {fmt_pct(bdd)}% of the food as bought is edible")
+        if use_bdd:
+            st.caption(f"{grams:.0f} g as bought × {fmt_pct(bdd)}% = {edible:.0f} g edible. The nutrients below "
+                       "are for the edible part.")
+        else:
+            st.caption(f"If {grams:.0f} g is the weight as bought (with peel, bones or seeds), tick the box "
+                       f"above to use {grams * bdd / 100:.0f} g edible instead.")
 
 key_cols = {}
 for name, pat in KEY_MACROS:
@@ -593,7 +594,8 @@ if len(major_parts) > 0 or len(trace_parts) > 0:
             "far smaller than calcium, phosphorus, sodium and potassium.")
     if len(m_missing) > 0:
         note += " Not reported for this food: " + ", ".join(m_missing) + "."
-    st.caption(note)
+    with st.expander("About the mineral bars", expanded=False):
+        st.caption(note)
 elif len(m_missing) > 0:
     st.caption("No mineral values are reported in TKPI for this food, so there are no mineral bars.")
 
